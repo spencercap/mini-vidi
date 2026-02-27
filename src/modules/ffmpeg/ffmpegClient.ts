@@ -32,8 +32,8 @@ export async function transcodeWebmToMp4(
 ) {
   await ffmpeg.writeFile('input.webm', await fetchFile(inputUrl))
   await ffmpeg.exec(['-i', 'input.webm', outputName])
-  const data = await ffmpeg.readFile(outputName)
-  return new Blob([data.buffer], { type: 'video/mp4' })
+  const data = (await ffmpeg.readFile(outputName)) as any
+  return new Blob([data.buffer ?? data], { type: 'video/mp4' })
 }
 
 type TranscodeOptions = {
@@ -83,6 +83,6 @@ export async function transcodeFileToMp4(
 
   args.push('-movflags', '+faststart', outputName)
   await ffmpeg.exec(args)
-  const data = await ffmpeg.readFile(outputName)
-  return new Blob([data.buffer], { type: 'video/mp4' })
+  const data = (await ffmpeg.readFile(outputName)) as any
+  return new Blob([data.buffer ?? data], { type: 'video/mp4' })
 }

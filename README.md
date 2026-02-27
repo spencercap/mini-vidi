@@ -1,3 +1,52 @@
+# Mini Vidi
+
+web-based video compression tool
+
+
+## Stack
+
+- Vite + React + TypeScript
+- React Router for navigation
+- ffmpeg.wasm (`@ffmpeg/ffmpeg` + `@ffmpeg/util`)
+- lil-gui for interactive controls
+
+## Pages
+
+- `src/Pages/Home.tsx`: landing page.
+- `src/Pages/Browse.tsx`: drag-and-drop folder browser with a collapsible table,
+  sorting, and live hover effects. Includes subfolder root navigation (font-weight corresponds to file size)
+- `src/Pages/Compress.tsx`: ffmpeg.wasm compressor with presets, custom settings,
+  status console, and file drop input.
+
+Routes are defined in `src/App.tsx`:
+
+- `/` → `Home`
+- `/browse` → `Browse`
+- `/convert` → `Compress`
+
+## Modules
+
+- `src/modules/browse/useBrowseGui.ts`: lil-gui controls for hover/trail tuning.
+- `src/modules/dropzone/TrailDropZone.tsx`: reusable drop zone with hover trail
+  effect.
+- `src/modules/ffmpeg/ffmpegClient.ts`: ffmpeg loader and transcode helpers.
+- `src/modules/compress/presetStorage.ts`: custom preset persistence via
+  `localStorage`.
+
+## Key Functions
+
+- `transcodeFileToMp4(...)` in `src/modules/ffmpeg/ffmpegClient.ts`:
+  ffmpeg execution with scaling, fps, bitrate caps, and audio options.
+- `useBrowseGui(...)` in `src/modules/browse/useBrowseGui.ts`:
+  lil-gui setup for trail spread and font selection.
+- `TrailDropZone` in `src/modules/dropzone/TrailDropZone.tsx`:
+  drop handling + animated hover trail.
+
+## Dev
+
+```sh
+pnpm dev
+```
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
