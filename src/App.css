@@ -1,7 +1,7 @@
 #root {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 6rem 2rem 2rem;
   text-align: center;
 }
 
@@ -39,4 +39,106 @@
 
 .read-the-docs {
   color: #888;
+}
+
+.app-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 2rem;
+  background-color: #1f1f1f;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.app-header__title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: inherit;
+}
+
+.app-header__nav {
+  text-align: right;
+}
+
+.file-table {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  border-collapse: collapse;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    'Liberation Mono', 'Courier New', monospace;
+}
+
+.file-table__header {
+  text-align: left;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #3a3a3a;
+}
+
+.file-table__header--size {
+  text-align: right;
+}
+
+.file-table__header--date {
+  text-align: right;
+}
+
+.file-table__header--relative {
+  text-align: right;
+}
+
+.file-table__cell {
+  padding: 0.35rem 0;
+  border-bottom: 1px solid #2a2a2a;
+  vertical-align: top;
+}
+
+.file-table__cell--name {
+  text-align: left;
+}
+
+.file-table__cell--size {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.file-table__cell--date {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.file-table__cell--relative {
+  text-align: right;
+  white-space: nowrap;
+}
+.file-table__row--folder .file-table__cell {
+  font-weight: 600;
+}
+
+.file-table__toggle {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  margin-right: 0.5rem;
+  font: inherit;
+}
+
+.file-table__sort {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+}
+
+.file-table__name {
+  word-break: break-word;
 }
