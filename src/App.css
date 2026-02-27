@@ -65,6 +65,43 @@
   text-align: right;
 }
 
+.drop-area {
+  position: relative;
+  perspective: 800px;
+}
+
+.drop-area__content {
+  transition: opacity 150ms ease;
+}
+
+.drop-area__content--hidden {
+  opacity: 0;
+}
+
+.drop-area__helper {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 2rem;
+  pointer-events: none;
+  color: #646cff;
+  transform: translateZ(40px);
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.4),
+    0 2px 0 rgba(0, 0, 0, 0.35),
+    0 3px 0 rgba(0, 0, 0, 0.3),
+    0 4px 0 rgba(0, 0, 0, 0.25),
+    0 5px 0 rgba(0, 0, 0, 0.2);
+}
+
+.drop-area__helper-text {
+  position: absolute;
+  transition: transform 70ms ease-out, opacity 70ms ease-out;
+}
+
 .file-table {
   width: 100%;
   max-width: 800px;

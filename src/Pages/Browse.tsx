@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import moment from 'moment'
 
 type DroppedFile = {
@@ -150,6 +150,9 @@ function Browse() {
   const [files, setFiles] = useState<DroppedFile[]>([])
   const [status, setStatus] = useState('Drop a folder to list files.')
   const [isDragging, setIsDragging] = useState(false)
+  const [hoverPercent, setHoverPercent] = useState({ x: 0, y: 0 })
+  const [helperText, setHelperText] = useState('Do it')
+  const dropAreaRef = useRef<HTMLDivElement | null>(null)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     () => new Set(),
   )
@@ -162,6 +165,39 @@ function Browse() {
     (event: React.DragEvent<HTMLDivElement>) => {
       event.preventDefault()
       if (!isDragging) setIsDragging(true)
+
+      const rect = dropAreaRef.current?.getBoundingClientRect()
+      if (!rect) return
+
+      const centerX = rect.left + rect.width / 2
+      const centerY = rect.top + rect.height / 2
+      const maxX = rect.width / 2 || 1
+      const maxY = rect.height / 2 || 1
+      const rawX = ((event.clientX - centerX) / maxX) * 100
+      const rawY = ((event.clientY - centerY) / maxY) * 100
+      const clampedX = Math.max(-100, Math.min(100, rawX))
+      const clampedY = Math.max(-100, Math.min(100, rawY))
+      const deadzone = 20
+      const softenedX =
+        Math.abs(clampedX) <= deadzone
+          ? 0
+          : ((Math.abs(clampedX) - deadzone) / (100 - deadzone)) *
+            Math.sign(clampedX) *
+            100
+      const softenedY =
+        Math.abs(clampedY) <= deadzone
+          ? 0
+          : ((Math.abs(clampedY) - deadzone) / (100 - deadzone)) *
+            Math.sign(clampedY) *
+            100
+      setHoverPercent({
+        x: Math.round(softenedX),
+        y: Math.round(softenedY),
+      })
+
+      const distance = Math.max(Math.abs(softenedX), Math.abs(softenedY))
+      const extraOs = Math.round((distance / 100) * 7)
+      setHelperText(`D${'o'.repeat(1 + extraOs)} it`)
     },
     [isDragging],
   )
@@ -170,6 +206,8 @@ function Browse() {
     (event: React.DragEvent<HTMLDivElement>) => {
       event.preventDefault()
       setIsDragging(false)
+      setHoverPercent({ x: 0, y: 0 })
+      setHelperText('Do it')
     },
     [],
   )
@@ -177,6 +215,8 @@ function Browse() {
   const handleDrop = useCallback(async (event: React.DragEvent) => {
     event.preventDefault()
     setIsDragging(false)
+    setHoverPercent({ x: 0, y: 0 })
+    setHelperText('Do it')
 
     const items = Array.from(event.dataTransfer.items).filter(
       (item) => item.kind === 'file',
@@ -406,6 +446,8 @@ function Browse() {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        ref={dropAreaRef}
+        className="drop-area"
         style={{
           border: '2px dashed',
           borderColor: isDragging ? '#646cff' : '#9aa0a6',
@@ -414,12 +456,42 @@ function Browse() {
           margin: '1.5rem 0',
           backgroundColor: isDragging ? 'rgba(100, 108, 255, 0.08)' : 'inherit',
           textAlign: 'center',
+          position: 'relative',
         }}
       >
-        <strong>Drop a folder here</strong>
-        <p style={{ margin: '0.5rem 0 0' }}>
-          We will list file names and sizes.
-        </p>
+        <div
+          className={`drop-area__content${
+            isDragging ? ' drop-area__content--hidden' : ''
+          }`}
+        >
+          <strong>Drop a folder here</strong>
+          <p style={{ margin: '0.5rem 0 0' }}>
+            We will list file names and sizes.
+          </p>
+          <p style={{ margin: '0.5rem 0 0' }}>
+            X: {hoverPercent.x}% · Y: {hoverPercent.y}%
+          </p>
+        </div>
+        {isDragging && (
+          <div className="drop-area__helper" aria-hidden="true">
+            {helperText.split('').map((letter, index, list) => {
+              const offset = (index / Math.max(list.length - 1, 1)) * 1.8
+              const translateX = hoverPercent.x * offset
+              const translateY = hoverPercent.y * offset
+              return (
+                <span
+                  key={`${helperText}-${index}`}
+                  className="drop-area__helper-text"
+                  style={{
+                    transform: `translate(${translateX}%, ${translateY}%)`,
+                  }}
+                >
+                  {letter === ' ' ? '\u00A0' : letter}
+                </span>
+              )
+            })}
+          </div>
+        )}
       </div>
       <div>
         {files.length > 0 ? (
