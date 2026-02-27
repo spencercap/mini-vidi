@@ -303,6 +303,13 @@
   background: rgba(255, 255, 255, 0.04);
   color: inherit;
   min-height: 44px;
+  width: 100%;
+}
+
+.form-input--height {
+  height: 44px;
+  padding: 0 0.7rem;
+  line-height: 44px;
 }
 
 .form-actions {

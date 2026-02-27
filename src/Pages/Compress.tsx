@@ -136,7 +136,6 @@ function Compress() {
   const [convertProgress, setConvertProgress] = useState(0)
   const [log, setLog] = useState('')
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
-  const [outputBlob, setOutputBlob] = useState<Blob | null>(null)
   const [inputFile, setInputFile] = useState<File | null>(null)
   const [inputMeta, setInputMeta] = useState<{
     width: number
@@ -331,7 +330,6 @@ function Compress() {
         URL.revokeObjectURL(videoUrl)
       }
       setVideoUrl(nextUrl)
-      setOutputBlob(blob)
       setConvertProgress(100)
       setIsDone(true)
       setLog('Transcode complete.')
@@ -394,7 +392,6 @@ function Compress() {
             return
           }
           setInputFile(file)
-          setOutputBlob(null)
           setIsDone(false)
           setInputMeta(null)
           setLog(`Loaded ${file.name}`)
@@ -461,7 +458,7 @@ function Compress() {
               <span className="form-label">Bitrate (Mbps)</span>
               <div className="form-inline">
                 <input
-                  className="form-input"
+                  className="form-input form-input--height"
                   type="number"
                   min={1}
                   max={10}
@@ -522,7 +519,7 @@ function Compress() {
         </div>
         <div className="console-log">{log}</div>
       </div>
-      <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem' }}>
+      {/* <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem' }}>
         <button onClick={handleLoad} disabled={isWorking || isReady || isLoading}>
           {isReady ? 'FFmpeg Loaded' : 'Load ffmpeg-core'}
         </button>{' '}
@@ -544,7 +541,7 @@ function Compress() {
         >
           Download
         </button>
-      </div>
+      </div> */}
       {videoUrl && <video src={videoUrl} controls style={{ maxWidth: '100%' }} />}
     </section>
   )
