@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import moment from 'moment'
-import { useBrowseGui } from './useBrowseGui.ts'
+import { useBrowseGui } from '../modules/browse/useBrowseGui.ts'
+import TrailDropZone from '../modules/dropzone/TrailDropZone.tsx'
 
 type DroppedFile = {
   id: string
@@ -173,13 +174,10 @@ function Browse() {
   const [rootPath, setRootPath] = useState('')
   const [files, setFiles] = useState<DroppedFile[]>([])
   const [status, setStatus] = useState('Drop a folder to list files.')
-  const [isDragging, setIsDragging] = useState(false)
-  const [hoverPercent, setHoverPercent] = useState({ x: 0, y: 0 })
-  const [helperText, setHelperText] = useState('Do it')
   const [trailSpreadX, setTrailSpreadX] = useState(initialTrailSpreadX)
   const [trailSpreadY, setTrailSpreadY] = useState(initialTrailSpreadY)
   const [fontChoice, setFontChoice] = useState('SonoVariable')
-  const dropAreaRef = useRef<HTMLDivElement | null>(null)
+  const [showModified, setShowModified] = useState(true)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     () => new Set(),
   )
@@ -201,63 +199,8 @@ function Browse() {
     document.documentElement.style.setProperty('--app-font', fontChoice)
   }, [fontChoice])
 
-  const handleDragOver = useCallback(
-    (event: React.DragEvent<HTMLDivElement>) => {
-      event.preventDefault()
-      if (!isDragging) setIsDragging(true)
-
-      const rect = dropAreaRef.current?.getBoundingClientRect()
-      if (!rect) return
-
-      const centerX = rect.left + rect.width / 2
-      const centerY = rect.top + rect.height / 2
-      const maxX = rect.width / 2 || 1
-      const maxY = rect.height / 2 || 1
-      const rawX = ((event.clientX - centerX) / maxX) * 100
-      const rawY = ((event.clientY - centerY) / maxY) * 100
-      const clampedX = Math.max(-100, Math.min(100, rawX))
-      const clampedY = Math.max(-100, Math.min(100, rawY))
-      const deadzoneX = 0
-      const deadzoneY = 0
-      const softenedX =
-        Math.abs(clampedX) <= deadzoneX
-          ? 0
-          : ((Math.abs(clampedX) - deadzoneX) / (100 - deadzoneX)) *
-            Math.sign(clampedX) *
-            100
-      const softenedY =
-        Math.abs(clampedY) <= deadzoneY
-          ? 0
-          : ((Math.abs(clampedY) - deadzoneY) / (100 - deadzoneY)) *
-            Math.sign(clampedY) *
-            100
-      setHoverPercent({
-        x: Math.round(softenedX),
-        y: Math.round(softenedY),
-      })
-
-      const distance = Math.max(Math.abs(softenedX), Math.abs(softenedY))
-      const extraOs = Math.round((distance / 100) * 7)
-      setHelperText(`D${'o'.repeat(1 + extraOs)} it`)
-    },
-    [isDragging],
-  )
-
-  const handleDragLeave = useCallback(
-    (event: React.DragEvent<HTMLDivElement>) => {
-      event.preventDefault()
-      setIsDragging(false)
-      setHoverPercent({ x: 0, y: 0 })
-      setHelperText('Do it')
-    },
-    [],
-  )
-
   const handleDrop = useCallback(async (event: React.DragEvent) => {
     event.preventDefault()
-    setIsDragging(false)
-    setHoverPercent({ x: 0, y: 0 })
-    setHelperText('Do it')
 
     const items = Array.from(event.dataTransfer.items).filter(
       (item) => item.kind === 'file',
@@ -464,7 +407,7 @@ function Browse() {
             <span className="file-table__name">{node.name}</span>
             <button
               type="button"
-              className="file-table__subtle"
+              className="file-table__subtle file-table__subtle--root"
               onClick={() => handleSetRoot(node.fullPath)}
             >
               Set root
@@ -473,9 +416,11 @@ function Browse() {
           <td className="file-table__cell file-table__cell--size">
             {formatBytes(node.size)}
           </td>
-          <td className="file-table__cell file-table__cell--date">
-            {formatDate(node.modified)}
-          </td>
+          {showModified && (
+            <td className="file-table__cell file-table__cell--date">
+              {formatDate(node.modified)}
+            </td>
+          )}
           <td className="file-table__cell file-table__cell--relative">
             {formatRelativeDate(node.modified)}
           </td>
@@ -509,9 +454,11 @@ function Browse() {
           <td className="file-table__cell file-table__cell--size">
             {formatBytes(file.size)}
           </td>
-          <td className="file-table__cell file-table__cell--date">
-            {formatDate(file.modified)}
-          </td>
+          {showModified && (
+            <td className="file-table__cell file-table__cell--date">
+              {formatDate(file.modified)}
+            </td>
+          )}
           <td className="file-table__cell file-table__cell--relative">
             {formatRelativeDate(file.modified)}
           </td>
@@ -544,6 +491,7 @@ function Browse() {
     folderTree,
     handleSetRoot,
     handleToggleFolder,
+    showModified,
   ])
 
   const sortLabel = (key: SortKey) => {
@@ -553,65 +501,20 @@ function Browse() {
 
   return (
     <section className="card">
-      <p>{status}</p>
-      <div
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
+      <TrailDropZone
         onDrop={handleDrop}
-        ref={dropAreaRef}
-        className="drop-area"
-        style={{
-          border: '2px dashed',
-          borderColor: isDragging ? '#646cff' : '#9aa0a6',
-          borderRadius: 12,
-          padding: '2rem',
-          margin: '1.5rem 0',
-          backgroundColor: isDragging ? 'rgba(100, 108, 255, 0.08)' : 'inherit',
-          textAlign: 'center',
-          position: 'relative',
-        }}
+        trailSpreadX={trailSpreadX}
+        trailSpreadY={trailSpreadY}
       >
-        <div
-          className={`drop-area__content${
-            isDragging ? ' drop-area__content--hidden' : ''
-          }`}
-        >
-          <strong>Drop a folder here</strong>
-          <p style={{ margin: '0.5rem 0 0' }}>
-            We will list file names and sizes.
-          </p>
-          <p style={{ margin: '0.5rem 0 0' }}>
-            X: {hoverPercent.x}% · Y: {hoverPercent.y}%
-          </p>
-        </div>
-        {isDragging && (
-          <div className="drop-area__helper" aria-hidden="true">
-            {helperText.split('').map((letter, index, list) => {
-              const offset = index / Math.max(list.length - 1, 1)
-              const translateX = hoverPercent.x * offset * trailSpreadX
-              const translateY = hoverPercent.y * offset * trailSpreadY
-              return (
-                <span
-                  key={`${helperText}-${index}`}
-                  className="drop-area__helper-text"
-                  style={{
-                    transform: `translate(${translateX}%, ${translateY}%)`,
-                  }}
-                >
-                  {letter === ' ' ? '\u00A0' : letter}
-                </span>
-              )
-            })}
-          </div>
-        )}
-      </div>
+        <strong>Drop a folder here</strong>
+      </TrailDropZone>
       <div>
         {files.length > 0 ? (
           <>
             <div className="file-table__toolbar">
               <button
                 type="button"
-                className={`file-table__subtle${
+                className={`file-table__subtle file-table__subtle--back${
                   rootPath ? '' : ' file-table__subtle--disabled'
                 }`}
                 onClick={handleBackUp}
@@ -619,7 +522,10 @@ function Browse() {
               >
                 Back up directory
               </button>
-              <span>Total size: {formatBytes(totalSize)}</span>
+              <div className="file-table__meta">{status}</div>
+              <div className="file-table__meta">
+                Total size: {formatBytes(totalSize)}
+              </div>
             </div>
             <table className="file-table">
               <thead>
@@ -642,22 +548,36 @@ function Browse() {
                       Size{sortLabel('size')}
                     </button>
                   </th>
-                  <th className="file-table__header file-table__header--date">
-                    <button
-                      type="button"
-                      className="file-table__sort"
-                      onClick={() => handleSortChange('modified')}
-                    >
-                      Modified Time{sortLabel('modified')}
-                    </button>
-                  </th>
+                  {showModified && (
+                    <th className="file-table__header file-table__header--date">
+                      <button
+                        type="button"
+                        className="file-table__sort"
+                        onClick={() => handleSortChange('modified')}
+                      >
+                        Date{sortLabel('modified')}
+                      </button>
+                    </th>
+                  )}
                   <th className="file-table__header file-table__header--relative">
                     <button
                       type="button"
                       className="file-table__sort"
                       onClick={() => handleSortChange('relative')}
                     >
-                      Relative Time{sortLabel('relative')}
+                      Time{sortLabel('relative')}
+                    </button>
+                    <button
+                      type="button"
+                      className="file-table__toggle-col"
+                      onClick={() => setShowModified((prev) => !prev)}
+                      aria-label={
+                        showModified
+                          ? 'Hide modified column'
+                          : 'Show modified column'
+                      }
+                    >
+                      {showModified ? '−' : '+'}
                     </button>
                   </th>
                 </tr>

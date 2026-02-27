@@ -1,7 +1,7 @@
 import { Route, Routes } from 'react-router-dom'
 import Header from './components/Header'
 import Browse from './Pages/Browse'
-import Convert from './Pages/Convert'
+import Compress from './Pages/Compress'
 import Home from './Pages/Home'
 import './App.css'
 
@@ -11,7 +11,7 @@ function App() {
       <Header />
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/convert" element={<Convert />} />
+        <Route path="/convert" element={<Compress />} />
         <Route path="/browse" element={<Browse />} />
       </Routes>
     </>
