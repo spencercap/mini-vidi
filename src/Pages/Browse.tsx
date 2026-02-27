@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import moment from 'moment'
+import { useBrowseGui } from './useBrowseGui.ts'
 
 type DroppedFile = {
   id: string
@@ -12,10 +13,13 @@ type DroppedFile = {
 type FolderNode = {
   name: string
   path: string
+  fullPath: string
   children: FolderNode[]
   files: DroppedFile[]
   size: number
   modified: number
+  minFileSize: number
+  maxFileSize: number
 }
 
 type SortKey = 'name' | 'size' | 'modified' | 'relative'
@@ -81,14 +85,17 @@ function createEntryLabel(basePath: string, entryName: string) {
   return basePath ? `${basePath}/${entryName}` : entryName
 }
 
-function buildFolderTree(files: DroppedFile[]) {
+function buildFolderTree(files: DroppedFile[], rootPath: string) {
   const root: FolderNode = {
     name: '',
     path: '',
+    fullPath: rootPath,
     children: [],
     files: [],
     size: 0,
     modified: 0,
+    minFileSize: Number.POSITIVE_INFINITY,
+    maxFileSize: 0,
   }
   const nodeByPath = new Map<string, FolderNode>()
   nodeByPath.set('', root)
@@ -105,10 +112,13 @@ function buildFolderTree(files: DroppedFile[]) {
         next = {
           name: part,
           path: nextPath,
+          fullPath: rootPath ? `${rootPath}/${nextPath}` : nextPath,
           children: [],
           files: [],
           size: 0,
           modified: 0,
+          minFileSize: Number.POSITIVE_INFINITY,
+          maxFileSize: 0,
         }
         current.children.push(next)
         nodeByPath.set(nextPath, next)
@@ -127,6 +137,14 @@ function buildFolderTree(files: DroppedFile[]) {
       (latest, file) => Math.max(latest, file.modified),
       0,
     )
+    const fileMin = node.files.reduce(
+      (min, file) => Math.min(min, file.size),
+      Number.POSITIVE_INFINITY,
+    )
+    const fileMax = node.files.reduce(
+      (max, file) => Math.max(max, file.size),
+      0,
+    )
     const childTotal = node.children.reduce(
       (sum, child) => sum + calculateMetadata(child),
       0,
@@ -138,6 +156,8 @@ function buildFolderTree(files: DroppedFile[]) {
     const total = fileTotal + childTotal
     node.size = total
     node.modified = Math.max(fileModified, childModified)
+    node.minFileSize = Number.isFinite(fileMin) ? fileMin : 0
+    node.maxFileSize = fileMax
     return total
   }
 
@@ -146,12 +166,19 @@ function buildFolderTree(files: DroppedFile[]) {
   return root
 }
 
+const initialTrailSpreadX = 11
+const initialTrailSpreadY = 2
+
 function Browse() {
+  const [rootPath, setRootPath] = useState('')
   const [files, setFiles] = useState<DroppedFile[]>([])
   const [status, setStatus] = useState('Drop a folder to list files.')
   const [isDragging, setIsDragging] = useState(false)
   const [hoverPercent, setHoverPercent] = useState({ x: 0, y: 0 })
   const [helperText, setHelperText] = useState('Do it')
+  const [trailSpreadX, setTrailSpreadX] = useState(initialTrailSpreadX)
+  const [trailSpreadY, setTrailSpreadY] = useState(initialTrailSpreadY)
+  const [fontChoice, setFontChoice] = useState('SonoVariable')
   const dropAreaRef = useRef<HTMLDivElement | null>(null)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     () => new Set(),
@@ -160,6 +187,19 @@ function Browse() {
     key: 'size',
     direction: 'desc',
   })
+
+  useBrowseGui({
+    trailSpreadX,
+    trailSpreadY,
+    fontChoice,
+    onTrailSpreadXChange: setTrailSpreadX,
+    onTrailSpreadYChange: setTrailSpreadY,
+    onFontChoiceChange: setFontChoice,
+  })
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--app-font', fontChoice)
+  }, [fontChoice])
 
   const handleDragOver = useCallback(
     (event: React.DragEvent<HTMLDivElement>) => {
@@ -177,17 +217,18 @@ function Browse() {
       const rawY = ((event.clientY - centerY) / maxY) * 100
       const clampedX = Math.max(-100, Math.min(100, rawX))
       const clampedY = Math.max(-100, Math.min(100, rawY))
-      const deadzone = 20
+      const deadzoneX = 0
+      const deadzoneY = 0
       const softenedX =
-        Math.abs(clampedX) <= deadzone
+        Math.abs(clampedX) <= deadzoneX
           ? 0
-          : ((Math.abs(clampedX) - deadzone) / (100 - deadzone)) *
+          : ((Math.abs(clampedX) - deadzoneX) / (100 - deadzoneX)) *
             Math.sign(clampedX) *
             100
       const softenedY =
-        Math.abs(clampedY) <= deadzone
+        Math.abs(clampedY) <= deadzoneY
           ? 0
-          : ((Math.abs(clampedY) - deadzone) / (100 - deadzone)) *
+          : ((Math.abs(clampedY) - deadzoneY) / (100 - deadzoneY)) *
             Math.sign(clampedY) *
             100
       setHoverPercent({
@@ -294,6 +335,7 @@ function Browse() {
 
     await walkEntry(directoryEntry, '')
     setFiles(collected)
+    setRootPath('')
     const nextExpanded = new Set<string>()
     collected.forEach((file) => {
       const [topLevel] = file.path.split('/')
@@ -310,12 +352,41 @@ function Browse() {
     )
   }, [])
 
+  const visibleFiles = useMemo(() => {
+    if (!rootPath) return files
+    const prefix = `${rootPath}/`
+    return files
+      .filter((file) => file.path === rootPath || file.path.startsWith(prefix))
+      .map((file) => ({
+        ...file,
+        path: file.path.startsWith(prefix)
+          ? file.path.slice(prefix.length)
+          : file.path,
+      }))
+  }, [files, rootPath])
+
   const totalSize = useMemo(
-    () => files.reduce((sum, file) => sum + file.size, 0),
-    [files],
+    () => visibleFiles.reduce((sum, file) => sum + file.size, 0),
+    [visibleFiles],
   )
 
-  const folderTree = useMemo(() => buildFolderTree(files), [files])
+  const folderTree = useMemo(
+    () => buildFolderTree(visibleFiles, rootPath),
+    [rootPath, visibleFiles],
+  )
+
+  const handleSetRoot = useCallback((path: string) => {
+    setRootPath(path)
+    setExpandedFolders(new Set())
+  }, [])
+
+  const handleBackUp = useCallback(() => {
+    if (!rootPath) return
+    const parts = rootPath.split('/').filter(Boolean)
+    parts.pop()
+    setRootPath(parts.join('/'))
+    setExpandedFolders(new Set())
+  }, [rootPath])
 
   const handleToggleFolder = useCallback((path: string) => {
     setExpandedFolders((prev) => {
@@ -360,6 +431,19 @@ function Browse() {
 
   const rows = useMemo(() => {
     const rendered: React.ReactNode[] = []
+    const minWeight = 100
+    const maxWeight = 900
+
+    const getWeightForSize = (
+      size: number,
+      minSize: number,
+      maxSize: number,
+    ) => {
+      if (maxSize <= minSize) return Math.round((minWeight + maxWeight) / 2)
+      const ratio = (size - minSize) / (maxSize - minSize)
+      const rawWeight = minWeight + ratio * (maxWeight - minWeight)
+      return Math.round(rawWeight / 5) * 5
+    }
 
     const renderFolderRow = (node: FolderNode, depth: number) => {
       const isExpanded = expandedFolders.has(node.path)
@@ -378,6 +462,13 @@ function Browse() {
               {isExpanded ? '▾' : '▸'}
             </button>
             <span className="file-table__name">{node.name}</span>
+            <button
+              type="button"
+              className="file-table__subtle"
+              onClick={() => handleSetRoot(node.fullPath)}
+            >
+              Set root
+            </button>
           </td>
           <td className="file-table__cell file-table__cell--size">
             {formatBytes(node.size)}
@@ -392,14 +483,28 @@ function Browse() {
       )
     }
 
-    const renderFileRow = (file: DroppedFile, depth: number) => {
+    const renderFileRow = (
+      file: DroppedFile,
+      depth: number,
+      parentNode: FolderNode,
+    ) => {
+      const weight = getWeightForSize(
+        file.size,
+        parentNode.minFileSize,
+        parentNode.maxFileSize,
+      )
       rendered.push(
         <tr className="file-table__row" key={file.id}>
           <td
             className="file-table__cell file-table__cell--name"
             style={{ paddingLeft: `${depth * 1.25}rem` }}
           >
-            <span className="file-table__name">{file.name}</span>
+            <span
+              className="file-table__name"
+              style={{ fontFamily: fontChoice, fontWeight: weight }}
+            >
+              {file.name}
+            </span>
           </td>
           <td className="file-table__cell file-table__cell--size">
             {formatBytes(file.size)}
@@ -427,12 +532,19 @@ function Browse() {
       const sortedChildren = [...node.children].sort(compareBy)
       const sortedFiles = [...node.files].sort(compareBy)
       sortedChildren.forEach((child) => walk(child, nextDepth))
-      sortedFiles.forEach((file) => renderFileRow(file, nextDepth))
+      sortedFiles.forEach((file) => renderFileRow(file, nextDepth, node))
     }
 
     walk(folderTree, 0)
     return rendered
-  }, [compareBy, expandedFolders, folderTree, handleToggleFolder])
+  }, [
+    compareBy,
+    expandedFolders,
+    fontChoice,
+    folderTree,
+    handleSetRoot,
+    handleToggleFolder,
+  ])
 
   const sortLabel = (key: SortKey) => {
     if (sortConfig.key !== key) return ''
@@ -475,9 +587,9 @@ function Browse() {
         {isDragging && (
           <div className="drop-area__helper" aria-hidden="true">
             {helperText.split('').map((letter, index, list) => {
-              const offset = (index / Math.max(list.length - 1, 1)) * 1.8
-              const translateX = hoverPercent.x * offset
-              const translateY = hoverPercent.y * offset
+              const offset = index / Math.max(list.length - 1, 1)
+              const translateX = hoverPercent.x * offset * trailSpreadX
+              const translateY = hoverPercent.y * offset * trailSpreadY
               return (
                 <span
                   key={`${helperText}-${index}`}
@@ -496,7 +608,19 @@ function Browse() {
       <div>
         {files.length > 0 ? (
           <>
-            <p>Total size: {formatBytes(totalSize)}</p>
+            <div className="file-table__toolbar">
+              <button
+                type="button"
+                className={`file-table__subtle${
+                  rootPath ? '' : ' file-table__subtle--disabled'
+                }`}
+                onClick={handleBackUp}
+                disabled={!rootPath}
+              >
+                Back up directory
+              </button>
+              <span>Total size: {formatBytes(totalSize)}</span>
+            </div>
             <table className="file-table">
               <thead>
                 <tr>

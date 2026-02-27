@@ -179,3 +179,25 @@
 .file-table__name {
   word-break: break-word;
 }
+
+.file-table__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  gap: 1rem;
+}
+
+.file-table__subtle {
+  border: none;
+  background: transparent;
+  color: #c6c6c6;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+
+.file-table__subtle--disabled {
+  color: #6b6b6b;
+  cursor: not-allowed;
+}
